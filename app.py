@@ -21,8 +21,8 @@ CORS(app)
 # tf.enable_eager_execution()
 
 
-sess = tf.compat.v1.Session()
-graph = tf.compat.v1.get_default_graph()
+#sess = tf.compat.v1.Session()
+#graph = tf.compat.v1.get_default_graph()
 
 
 def unicode_to_ascii(s):
@@ -190,63 +190,63 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
 
 
 def evaluate(sentence):
-    with sess.as_default():
-        with graph.as_default():
-            attention_plot = np.zeros((max_length_targ, max_length_inp))
+    # with sess.as_default():
+    # with graph.as_default():
+    attention_plot = np.zeros((max_length_targ, max_length_inp))
 
-            sentence = preprocess_sentence(sentence)
+    sentence = preprocess_sentence(sentence)
 
-            # check word
-            words = sentence.split(" ")
-            for word in words:
-                if word not in word_en:
-                    sentence = sentence.replace(word, "<unk>")
-            #
+    # check word
+    words = sentence.split(" ")
+    for word in words:
+        if word not in word_en:
+            sentence = sentence.replace(word, "<unk>")
+    #
 
-            inputs = [word2int_en[i] for i in sentence.split(' ')]
-            inputs = tf.keras.preprocessing.sequence.pad_sequences([inputs],
-                                                                   maxlen=max_length_inp,
-                                                                   padding='post')
-            inputs = tf.convert_to_tensor(inputs)
+    inputs = [word2int_en[i] for i in sentence.split(' ')]
+    inputs = tf.keras.preprocessing.sequence.pad_sequences([inputs],
+                                                           maxlen=max_length_inp,
+                                                           padding='post')
+    inputs = tf.convert_to_tensor(inputs)
 
-            result = ''
+    result = ''
 
-            hidden = [tf.zeros((1, units))]
-            enc_out, enc_hidden = encoder(inputs, hidden)
+    hidden = [tf.zeros((1, units))]
+    enc_out, enc_hidden = encoder(inputs, hidden)
 
-            dec_hidden = enc_hidden
-            dec_input = tf.expand_dims([word2int_vi['<start>']], 0)
+    dec_hidden = enc_hidden
+    dec_input = tf.expand_dims([word2int_vi['<start>']], 0)
 
-            for t in range(max_length_targ):
-                predictions, dec_hidden, attention_weights = decoder(dec_input,
-                                                                     dec_hidden,
-                                                                     enc_out)
+    for t in range(max_length_targ):
+        predictions, dec_hidden, attention_weights = decoder(dec_input,
+                                                             dec_hidden,
+                                                             enc_out)
 
-                # storing the attention weights to plot later on
-                attention_weights = tf.reshape(attention_weights, (-1, ))
-                attention_plot[t] = attention_weights.numpy()
+        # storing the attention weights to plot later on
+        attention_weights = tf.reshape(attention_weights, (-1, ))
+        attention_plot[t] = attention_weights.numpy()
 
-                predicted_id = tf.argmax(predictions[0]).numpy()
+        predicted_id = tf.argmax(predictions[0]).numpy()
 
-                result += int2word_vi[predicted_id] + ' '
+        result += int2word_vi[predicted_id] + ' '
 
-                if int2word_vi[predicted_id] == '<end>':
-                    return result, sentence, attention_plot
-
-                # the predicted ID is fed back into the model
-                dec_input = tf.expand_dims([predicted_id], 0)
-
+        if int2word_vi[predicted_id] == '<end>':
             return result, sentence, attention_plot
+
+        # the predicted ID is fed back into the model
+        dec_input = tf.expand_dims([predicted_id], 0)
+
+    return result, sentence, attention_plot
 
 
 # with sess.as_default():
 #    with graph.as_default():
 
 def predict(sentence):
-    with sess.as_default():
-        with graph.as_default():
-            result, sentence, attention_plot = evaluate(sentence)
-            return result
+    # with sess.as_default():
+    # with graph.as_default():
+    result, sentence, attention_plot = evaluate(sentence)
+    return result
 
 
 # restoring the latest checkpoint in checkpoint_dir
@@ -289,10 +289,10 @@ def translate():
 
             print(inputArray)
 
-            with sess.as_default():
-                with graph.as_default():
-                    for i in inputArray:
-                        output += (predict(i).replace('<end>', ""))
+            # with sess.as_default():
+            # with graph.as_default():
+            for i in inputArray:
+                output += (predict(i).replace('<end>', ""))
 
             output.replace('  ', ' ')
             output.replace(' ?', '?')
