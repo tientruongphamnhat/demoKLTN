@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify
-#import tensorflow as tf
+# import tensorflow as tf
 from tensorflow import keras
 import time
 import io
@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from flask_cors import CORS
 
-app = Flask('translate')
+app = Flask(__name__)
 CORS(app)
 # -----
 
@@ -31,11 +31,11 @@ def unicode_to_ascii(s):
 
 
 def preprocess_sentence(w):
-    #w = unicode_to_ascii(w.lower().strip())
+    # w = unicode_to_ascii(w.lower().strip())
     w = w.lower()
     w = re.sub(r"([?.!,¿])", r" \1 ", w)
     w = re.sub(r'[" "]+', " ", w)
-    #w = re.sub(r"[^a-zA-Z?.!,¿]+", " ", w)
+    # w = re.sub(r"[^a-zA-Z?.!,¿]+", " ", w)
     w = w.strip()
     w = '<start> ' + w + ' <end>'
     return w
@@ -190,59 +190,63 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
 
 
 def evaluate(sentence):
-    attention_plot = np.zeros((max_length_targ, max_length_inp))
+    with sess.as_default():
+        with graph.as_default():
+            attention_plot = np.zeros((max_length_targ, max_length_inp))
 
-    sentence = preprocess_sentence(sentence)
+            sentence = preprocess_sentence(sentence)
 
-    # check word
-    words = sentence.split(" ")
-    for word in words:
-        if word not in word_en:
-            sentence = sentence.replace(word, "<unk>")
-    #
+            # check word
+            words = sentence.split(" ")
+            for word in words:
+                if word not in word_en:
+                    sentence = sentence.replace(word, "<unk>")
+            #
 
-    inputs = [word2int_en[i] for i in sentence.split(' ')]
-    inputs = tf.keras.preprocessing.sequence.pad_sequences([inputs],
-                                                           maxlen=max_length_inp,
-                                                           padding='post')
-    inputs = tf.convert_to_tensor(inputs)
+            inputs = [word2int_en[i] for i in sentence.split(' ')]
+            inputs = tf.keras.preprocessing.sequence.pad_sequences([inputs],
+                                                                   maxlen=max_length_inp,
+                                                                   padding='post')
+            inputs = tf.convert_to_tensor(inputs)
 
-    result = ''
+            result = ''
 
-    hidden = [tf.zeros((1, units))]
-    enc_out, enc_hidden = encoder(inputs, hidden)
+            hidden = [tf.zeros((1, units))]
+            enc_out, enc_hidden = encoder(inputs, hidden)
 
-    dec_hidden = enc_hidden
-    dec_input = tf.expand_dims([word2int_vi['<start>']], 0)
+            dec_hidden = enc_hidden
+            dec_input = tf.expand_dims([word2int_vi['<start>']], 0)
 
-    for t in range(max_length_targ):
-        predictions, dec_hidden, attention_weights = decoder(dec_input,
-                                                             dec_hidden,
-                                                             enc_out)
+            for t in range(max_length_targ):
+                predictions, dec_hidden, attention_weights = decoder(dec_input,
+                                                                     dec_hidden,
+                                                                     enc_out)
 
-        # storing the attention weights to plot later on
-        attention_weights = tf.reshape(attention_weights, (-1, ))
-        attention_plot[t] = attention_weights.numpy()
+                # storing the attention weights to plot later on
+                attention_weights = tf.reshape(attention_weights, (-1, ))
+                attention_plot[t] = attention_weights.numpy()
 
-        predicted_id = tf.argmax(predictions[0]).numpy()
+                predicted_id = tf.argmax(predictions[0]).numpy()
 
-        result += int2word_vi[predicted_id] + ' '
+                result += int2word_vi[predicted_id] + ' '
 
-        if int2word_vi[predicted_id] == '<end>':
+                if int2word_vi[predicted_id] == '<end>':
+                    return result, sentence, attention_plot
+
+                # the predicted ID is fed back into the model
+                dec_input = tf.expand_dims([predicted_id], 0)
+
             return result, sentence, attention_plot
-
-        # the predicted ID is fed back into the model
-        dec_input = tf.expand_dims([predicted_id], 0)
-
-    return result, sentence, attention_plot
 
 
 # with sess.as_default():
 #    with graph.as_default():
 
 def predict(sentence):
-    result, sentence, attention_plot = evaluate(sentence)
-    return result
+    with sess.as_default():
+        with graph.as_default():
+            result, sentence, attention_plot = evaluate(sentence)
+            return result
 
 
 # restoring the latest checkpoint in checkpoint_dir
@@ -284,8 +288,11 @@ def translate():
                 index += 1
 
             print(inputArray)
-            for i in inputArray:
-                output += (predict(i).replace('<end>', ""))
+
+            with sess.as_default():
+                with graph.as_default():
+                    for i in inputArray:
+                        output += (predict(i).replace('<end>', ""))
 
             output.replace('  ', ' ')
             output.replace(' ?', '?')
@@ -295,3 +302,6 @@ def translate():
 
 
 app.run("localhost", "9999", debug=True)
+# if __name__ == '__main__':
+# app.debug=True
+#app.run(host='0.0.0.0', port=80)
